@@ -38,62 +38,53 @@
 
 import rospy
 from std_msgs.msg import String
-from geometry_msgs.msg import Twist
-from geometry_msgs.msg import Vector3
+from geometry_msgs.msg import Twist, Vector3
 from sensor_msgs.msg import LaserScan
 
-distance_to_wall = -1.0
 
-def scan_received(msg): #references the wall in front of the scanner
-    """ Callback function for msg of type sensor_msgs/LaserScan """
-    global distance_to_wall
-    valid_measurements = []
+def getch():
+    """ Return the next character typed on the keyboard """
+    import sys, tty, termios
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
+
+def scan_received(msg):
+    """ Processes data from the laser scanner, msg is of type sensor_msgs/LaserScan """
+    valid_ranges = []
     for i in range(5):
-        if msg.ranges[i] != 90 and msg.ranges[i] < 100:
-            valid_measurements.append(msg.ranges[i])
-    if len(valid_measurements):
-        distance_to_wall = sum(valid_measurements)/float(len(valid_measurements))
-    else:
-        distance_to_wall = -1.0
-    # print distance_to_wall
+        if msg.ranges[i] > 0 and msg.ranges[i] < 8:
+            valid_ranges.append(msg.ranges[i])
+    if len(valid_ranges) > 0:
+        mean_distance = sum(valid_ranges)/float(len(valid_ranges))
+        
+        print mean_distance
+    print "scan received"
 
-def lside_received(msg): #references the wall in front of the scanner
-    """ Callback function for msg of type sensor_msgs/LaserScan """
-    long lDist
-    valid_measurements = []
-    for i in range(5):
-        if msg.ranges[i] != 270 and msg.ranges[i] < 0:
-            valid_measurements.append(msg.ranges[i])
-            print "hi"
-    if len(valid_measurements):
-        lDist = sum(valid_measurements)/float(len(valid_measurements))
-    else:
-        lDist = -1.0
-    # print lDist
-
-def wall():
-    """ Run loop for the wall node """
-    pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-    # sub = rospy.Subscriber('/scan', LaserScan, scan_received)
-    sub2 = rospy.Subscriber ('/scan', LaserScan, lside_received)
-    rospy.init_node('wall', anonymous=True)
+def teleop():
+    pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+    sub = rospy.Subscriber('scan', LaserScan, scan_received)
+    rospy.init_node('teleop', anonymous=True)
     r = rospy.Rate(10) # 10hz
     while not rospy.is_shutdown():
-        if distance_to_wall == -1:
+        ch = getch()
+        if ch == 'i':
+            msg = Twist(Vector3(0.2, 0.0, 0.0), Vector3(0.0, 0.0, 0.0))
+        elif ch == 'k':
+            msg = Twist(Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.0, 0.0))
+        elif ch == 'j':
             msg = Twist(Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.0, 1))
-
-
-
-        while (distance_to_wall >= -0.98 and distance_to_wall <= -1.02):
-            msg = Twist()
-            print "finished" 
-        while (distance_to_wall > -1.02 or distance_to_wall < -0.98):
-            msg = Twist(linear=Vector3(x=(distance_to_wall-1)*.2))
-            print "still searching"
+        elif ch == 'q':
+            break
         pub.publish(msg)
         r.sleep()
         
 if __name__ == '__main__':
     try:
-        wall()
+        teleop()
     except rospy.ROSInterruptException: pass

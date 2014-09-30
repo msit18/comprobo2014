@@ -129,7 +129,7 @@ class OccupancyField:
 		for i in range(self.map.info.width):
 			for j in range(self.map.info.height):
 				ind = i + j*self.map.info.width
-				self.closest_occ[ind] = distances[curr]*self.map.info.resolution
+				self.closest_occ[ind] = distances[curr][0]*self.map.info.resolution
 				curr += 1
 
 	def get_closest_obstacle_distance(self,x,y):
@@ -229,10 +229,12 @@ class ParticleFilter:
 				(1): compute the mean pose (level 2)
 				(2): compute the most likely pose (i.e. the mode of the distribution) (level 1)
 		"""
-		# TODO: assign the lastest pose into self.robot_pose as a geometry_msgs.Pose object
-
 		# first make sure that the particle weights are normalized
 		self.normalize_particles()
+
+		# TODO: assign the lastest pose into self.robot_pose as a geometry_msgs.Pose object
+		# just to get started we will fix the robot's pose to always be at the origin
+		self.robot_pose = Pose()
 
 	def update_particles_with_odom(self, msg):
 		""" Implement a simple version of this (Level 1) or a more complex one (Level 2) """
@@ -315,6 +317,7 @@ class ParticleFilter:
 		if xy_theta == None:
 			xy_theta = TransformHelpers.convert_pose_to_xy_and_theta(self.odom_pose.pose)
 		self.particle_cloud = []
+		self.particle_cloud.append(Particle(0,0,0))
 		# TODO create particles
 		# given xy_theta we should come up with 300 hypotheses around that given tuple 
 		# most basic is you take the given and multiply it to give some noise
@@ -373,8 +376,8 @@ class ParticleFilter:
 			# we have moved far enough to do an update!
 			self.update_particles_with_odom(msg)	# update based on odometry
 			self.update_particles_with_laser(msg)	# update based on laser scan
-			self.resample_particles()				# resample particles to focus on areas of high density
 			self.update_robot_pose()				# update robot's pose
+			self.resample_particles()				# resample particles to focus on areas of high density
 			self.fix_map_to_odom_transform(msg)		# update map to odom transform now that we have new particles
 		# publish particles (so things like rviz can see them)
 		self.publish_particles(msg)
